@@ -1,0 +1,5 @@
+curl -X POST http://localhost:8080/answer?id=585&answer=Wasabi
+
+curl http://localhost:8080/next?id=585
+
+curl http://localhost:8080/newGame?amount=10
