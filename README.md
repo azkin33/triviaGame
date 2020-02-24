@@ -13,7 +13,7 @@ To start a new game type,
 You can also send difficulty and category parameters.
 >curl http://<span></span>localhost:8080/newGame?amount=10\\&difficulty=easy\\&category=9
 
-**Normally you don't need "\" before "&" but BaseHttpRequestHandler doesn't receive parameters after the first "&" if you don't put "\" before them.**
+**Normally you don't need "\\" before "&" but BaseHttpRequestHandler doesn't receive parameters after the first "&" if you don't put "\\" before them.**
 
 To get next question:
 >curl http://<span></span>localhost:8080/next?id=585
