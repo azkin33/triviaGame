@@ -2,18 +2,19 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import urllib.request
-import json
-import random
-import time
+import json ,random,time
+
 class RequestHandler(BaseHTTPRequestHandler):
 
-    global MAXSESSIONS , MAXQUESTIONS , sessions , sessionsData ,sessionsQuestionNumbers , sessionsTime
+    global MAXSESSIONS , MAXQUESTIONS , sessions , sessionsData ,sessionsQuestionNumbers , sessionsTime ,sessionsScore,TIMEGIVEN
     MAXSESSIONS = 100
-    MAXQUESTIONS = 10
+    MAXQUESTIONS = {}
+    TIMEGIVEN = 20
     sessions=[]
     sessionsData = {}
     sessionsQuestionNumbers = {}
     sessionsTime = {}
+    sessionsScore = {}
 
 
     def say_hello(self, query):
@@ -38,17 +39,17 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def get_next_question(self,query):
         if "id" in query:
-            id = "".join(query["id"])
-            if int(id) not in sessions:
+            myid = "".join(query["id"])
+            if int(myid) not in sessions:
                 self.send_response(400)
                 self.end_headers()
-                self.wfile.write(str.encode("Session "+str(id)+" doesn't exist.\n"))
+                self.wfile.write(str.encode("Session "+str(myid)+" doesn't exist.\n"))
                 return
         else:
             return self.send_response(400)
 
         #Check if there is a remaining question
-        if sessionsQuestionNumbers[id]+1 > MAXQUESTIONS:
+        if sessionsQuestionNumbers[myid]+1 > MAXQUESTIONS[myid]:
             self.send_response(400)
             self.end_headers()
             self.wfile.write(str.encode("No questions left.\n"))
@@ -56,32 +57,45 @@ class RequestHandler(BaseHTTPRequestHandler):
         print("\n\nPATH: /next \n"
                 "METHOD: GET\n" \
                 "PARAMS:\n" \
-                    "\tid : "+str(id) +"\n"
-                "SAMPLE: http://localhost:8080/next?id="+str(id)+"\n")
+                    "\tid : "+str(myid) +"\n"
+                "SAMPLE: http://localhost:8080/next?myid="+str(myid)+"\n")
         
-        data = sessionsData[id]
-        print(sessionsData[id])
+        data = sessionsData[myid]
+        print(sessionsData[myid])
 
         
         self.send_response(200)
         self.end_headers()
 
-        answers = data[sessionsQuestionNumbers[id]]["incorrect_answers"]
-        answers.append(str(data[sessionsQuestionNumbers[id]]["correct_answer"]))
-        question = ("Question Number: "+str(sessionsQuestionNumbers[id]+1) +"\nCategory: " + str(data[sessionsQuestionNumbers[id]]["category"])+
-        "\nQuestion: " + str(data[sessionsQuestionNumbers[id]]["question"]).replace("&quot;","").replace("&#039;","") +"\n\n"+
-        "Answers: \n-"+ "\n-".join(answers) +"\n\n" +"You have 15 seconds to answer." +"\n"
+        answers = data[sessionsQuestionNumbers[myid]]["incorrect_answers"]
+        answers.append(str(data[sessionsQuestionNumbers[myid]]["correct_answer"]))
+        question = ("Question Number: "+str(sessionsQuestionNumbers[myid]+1) +"\nCategory: " + str(data[sessionsQuestionNumbers[myid]]["category"])+
+        "\nQuestion: " + str(data[sessionsQuestionNumbers[myid]]["question"]).replace("&quot;","").replace("&#039;","'").replace("&Uuml;","Ü") +"\n\n"+
+        "Answers: \n-"+ "\n-".join(answers) +"\n\n" +"You have {} seconds to answer.".format(TIMEGIVEN) +"\n"
         )
-        print(question)
+        
 
-        sessionsTime[id] = time.time()
+        sessionsTime[myid] = time.time()
 
-        sessionsQuestionNumbers[id] +=1
+        sessionsQuestionNumbers[myid] +=1
         self.wfile.write(str.encode(urllib.parse.unquote(question)))
 
 
-    def start_new_game(self):
-        req = urllib.request.Request("https://opentdb.com/api.php?amount=10")
+    def start_new_game(self,query):
+        reqUrl = "https://opentdb.com/api.php?amount="
+        print(query.keys())
+        amount = 10
+        if "amount" in query.keys():
+            reqUrl += str("".join(query["amount"]))
+            amount = "".join(query["amount"])
+        else:
+            reqUrl = "https://opentdb.com/api.php?amount=10"
+        if "difficulty" in query.keys():
+            reqUrl += "&difficulty=" + str("".join(query["difficulty"]))
+        if "category" in query.keys():
+            reqUrl += "&category=" + str("".join(query["category"]))
+        print(reqUrl)
+        req = urllib.request.Request(reqUrl)
         with urllib.request.urlopen(req) as response:
             data = response.read()
             js = json.loads(data)
@@ -102,6 +116,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         sessionsData[str(newSession)] = js["results"]
         sessionsQuestionNumbers[str(newSession)] = 0 
         print(sessionsData)
+
+        MAXQUESTIONS[str(newSession)] = int(amount)
+        sessionsScore[str(newSession)] = 0
         #currentData = {str(newSession) : js["results"]}
         #sessionsData.append(currentData)
        # print(sessionsData)
@@ -120,22 +137,36 @@ class RequestHandler(BaseHTTPRequestHandler):
     def answer_question(self,query):
         print(query)
         if "id" in query:
-            id = "".join(query["id"])
-            
-            if int(id) not in sessions:
+            myid = "".join(query["id"])
+            currentTime = time.time()
+            if int(myid) not in sessions:
                 return self.bad_session()
+            elif currentTime - sessionsTime[myid] > TIMEGIVEN:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(str.encode("Time is up. Answered in {} seconds.".format(currentTime-sessionsTime[myid])))
+                return
+                
             else:
                 inp ="".join(query["answer"])
-                data = sessionsData[id]
-                if inp==data[sessionsQuestionNumbers[id]-1]["correct_answer"]:
+                data = sessionsData[myid]
+                if inp==data[sessionsQuestionNumbers[myid]-1]["correct_answer"]:
                     self.send_response(200)
                     self.end_headers()
-                    self.wfile.write(str.encode("HARİKA"))
+                    sessionsScore[myid] +=1
+                    output ="CORRECT ANSWER!! \n {} correct of {} questions \n There are  {} more questions".format(sessionsScore[myid],
+                        sessionsQuestionNumbers[myid],
+                        MAXQUESTIONS[myid]-sessionsQuestionNumbers[myid])
+                    self.wfile.write(str.encode(output))
                 else:
 
                     self.send_response(200)
                     self.end_headers()
-                    self.wfile.write(str.encode("NOOBSUN" + str(data[sessionsQuestionNumbers[id]-1]["correct_answer"])))
+                    output ="WRONG ANSWER!! \n Correct answer was: {} \n {} correct of {} questions \n There are  {} more questions".format(data[sessionsQuestionNumbers[myid]-1]["correct_answer"],
+                        sessionsScore[myid],
+                        sessionsQuestionNumbers[myid],
+                        MAXQUESTIONS[myid]-sessionsQuestionNumbers[myid])
+                    self.wfile.write(str.encode(output))
 
                 
         else:
@@ -148,7 +179,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         
         url = urlparse(self.path)
         if url.path == "/answer":
-            print(url)
+            
             
             return self.answer_question(parse_qs(url.query))
         self.send_response(200)
@@ -161,9 +192,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         if url.path == "/hello":
             return self.say_hello(parse_qs(url.query))
-        elif url.path == "/newGame":
+        elif url.path =="/newGame":
             if len(sessions) < MAXSESSIONS:
-                return self.start_new_game()
+                return self.start_new_game(parse_qs(url.query))
         elif url.path == "/next":
             
             return self.get_next_question(parse_qs(url.query))
