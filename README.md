@@ -8,6 +8,7 @@ Run httpserver inside main.py by typing,
 From another terminal,
 To start a new game type,
 >curl http://<span></span>localhost:8080/newGame?amount=10
+
 10 is the default. You can change it.
 You can also send difficulty and category parameters.
 >curl http://<span></span>localhost:8080/newGame?amount=10\&difficulty=easy\&category=9
