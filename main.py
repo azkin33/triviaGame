@@ -61,7 +61,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "SAMPLE: http://localhost:8080/next?myid="+str(myid)+"\n")
         
         data = sessionsData[myid]
-        print(sessionsData[myid])
+        
 
         
         self.send_response(200)
@@ -83,31 +83,35 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def start_new_game(self,query):
         reqUrl = "https://opentdb.com/api.php?amount="
-        print(query.keys())
         amount = 10
+        log = "\n\nPATH: /newGame \n" \
+        "METHOD: GET\n" \
+        "PARAMS:\n" 
         if "amount" in query.keys():
             reqUrl += str("".join(query["amount"]))
             amount = "".join(query["amount"])
         else:
             reqUrl = "https://opentdb.com/api.php?amount=10"
+
+        log += "\tamount: " + str(amount) +"\n"
         if "difficulty" in query.keys():
             reqUrl += "&difficulty=" + str("".join(query["difficulty"]))
+            log += "\tdifficulty: " + str("".join(query["difficulty"])) + "\n"
         if "category" in query.keys():
             reqUrl += "&category=" + str("".join(query["category"]))
-        print(reqUrl)
+            log += "\tcategory: " + str("".join(query["category"])) + "\n"
+
         req = urllib.request.Request(reqUrl)
         with urllib.request.urlopen(req) as response:
             data = response.read()
             js = json.loads(data)
         
         
-        print("\n\nPATH: /newGame \n"
-        "METHOD: GET\n" \
-        "PARAMS:\n" \
             "\tamount: N (integer) default=10\n"
-        "SAMPLE: http://localhost:8080/newGame?amount=10\n")
+        sample = "SAMPLE: http://localhost:8080/newGame?amount=" + "=".join(reqUrl.split("=")[1:])
         
-        
+        log += sample
+        print(log)
 
         newSession = random.randint(0,MAXSESSIONS*10)
         while(newSession in sessions):
@@ -115,7 +119,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         sessions.append(newSession)
         sessionsData[str(newSession)] = js["results"]
         sessionsQuestionNumbers[str(newSession)] = 0 
-        print(sessionsData)
 
         MAXQUESTIONS[str(newSession)] = int(amount)
         sessionsScore[str(newSession)] = 0
@@ -174,13 +177,8 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
     def do_POST(self):
-        # Doesn't do anything with posted data
-        print(self.path)
-        
         url = urlparse(self.path)
-        if url.path == "/answer":
-            
-            
+        if url.path == "/answer":    
             return self.answer_question(parse_qs(url.query))
         self.send_response(200)
         self.send_header("Content-type", "text/html")
