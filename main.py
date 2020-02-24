@@ -139,6 +139,9 @@ class RequestHandler(BaseHTTPRequestHandler):
     
     def answer_question(self,query):
         print(query)
+        log = "\n\nPATH: /answer \n" \
+        "METHOD: POST\n" \
+        "PARAMS:\n" 
         if "id" in query:
             myid = "".join(query["id"])
             currentTime = time.time()
@@ -153,6 +156,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             else:
                 inp ="".join(query["answer"])
                 data = sessionsData[myid]
+                log += "\tid: "+str(myid) +"\n\tanswer: " + str(data[sessionsQuestionNumbers[myid]-1]["correct_answer"]) +"\n"
+                print(log)
                 if inp==data[sessionsQuestionNumbers[myid]-1]["correct_answer"]:
                     self.send_response(200)
                     self.end_headers()
